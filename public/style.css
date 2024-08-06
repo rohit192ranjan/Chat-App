@@ -38,9 +38,16 @@ body {
     padding: 10px;
     border-top: 1px solid #dee2e6;
 }
-.message-form input {
+.message-form input[type="text"] {
     flex: 1;
     margin-right: 10px;
+}
+.message-form button {
+    margin-right: 10px;
+}
+
+.message-form input[type="file"] {
+    display: none;
 }
 .hidden {
     display: none;

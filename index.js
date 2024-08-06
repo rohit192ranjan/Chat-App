@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const multer = require('multer');
 const path = require('path');
 require('dotenv').config();
 
@@ -18,7 +19,7 @@ const JWT_SECRET = process.env.JWT_SECRET; // Use a strong secret in production
 // Middleware
 app.use(bodyParser.json());
 app.use(cors());
-app.use(express.static(path.join(__dirname, 'public'))); // Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI, { dbName: process.env.DB_NAME, useNewUrlParser: true, useUnifiedTopology: true });
@@ -34,11 +35,42 @@ const messageSchema = new mongoose.Schema({
     to: String,
     text: String,
     timestamp: { type: Date, default: Date.now },
-    read: { type: Boolean, default: false }
+    read: { type: Boolean, default: false },
+    imageUrl: String
 });
 
 const User = mongoose.model('User', userSchema);
 const Message = mongoose.model('Message', messageSchema);
+
+// Set storage engine
+const storage = multer.diskStorage({
+    destination: './public/uploads/',
+    filename: function(req, file, cb) {
+        cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
+    }
+});
+
+// Initialize upload
+const upload = multer({
+    storage: storage,
+    limits: { fileSize: 1000000 }, // Limit file size to 1MB
+    fileFilter: function(req, file, cb) {
+        checkFileType(file, cb);
+    }
+}).single('image');
+
+// Check file type
+function checkFileType(file, cb) {
+    const filetypes = /jpeg|jpg|png|gif/;
+    const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = filetypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+        return cb(null, true);
+    } else {
+        cb('Error: Images Only!');
+    }
+}
 
 // Serve the HTML file
 app.get('/', (req, res) => {
@@ -121,6 +153,39 @@ app.get('/messages/:withUser', authenticate, async (req, res) => {
     }).sort({ timestamp: 1 });
     res.json(messages);
 });
+
+// Upload endpoint
+app.post('/upload', authenticate, async (req, res) => {
+    const upload = multer({ storage: storage }).single('image');
+    
+    upload(req, res, async (err) => {
+        if (err) {
+            return res.status(500).send('Error uploading file');
+        }
+
+        const { to } = req.body;
+        const text = req.body.text || '';
+        let filePath = '';
+
+        if (req.file) {
+            filePath = `/uploads/${req.file.filename}`;
+        }
+
+        const message = new Message({
+            from: req.user.username,
+            to,
+            text,
+            imageUrl: filePath
+        });
+
+        await message.save();
+        io.to(to).emit('private message', { from: req.user.username, text, imageUrl: filePath });
+        io.to(req.user.username).emit('private message', { from: req.user.username, text, imageUrl: filePath });
+
+        res.json({ text, filePath });
+    });
+});
+
 
 // Handle real-time messaging
 io.on('connection', (socket) => {
