@@ -19,6 +19,7 @@
                     document.getElementById('thumbnail').src = e.target.result;
                     document.getElementById('imagePreview').style.display = 'block';
                     document.getElementById('removeImageButton').style.display = 'block';
+                    document.getElementById('addImageButton').style.display = 'none';
                 };
                 reader.readAsDataURL(file);
             }
@@ -29,6 +30,7 @@
             document.getElementById('thumbnail').src = '';
             document.getElementById('imagePreview').style.display = 'none';
             document.getElementById('removeImageButton').style.display = 'none';
+            document.getElementById('addImageButton').style.display = 'block';
         }
 
         async function login() {
