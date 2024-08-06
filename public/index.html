@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="style.css">
+    <title>Real-time Chat Application</title>
+</head>
+<body>
+    <div class="container mt-5">
+        <div id="login" class="text-center">
+            <h2>Login</h2>
+            <input type="text" id="username" placeholder="Username" class="form-control mb-2" required>
+            <input type="password" id="password" placeholder="Password" class="form-control mb-2" required>
+            <button id="loginButton" class="btn btn-primary">Login</button>
+            <button id="registerButton" class="btn btn-secondary">Register</button>
+        </div>
+
+        <div id="chat" class="hidden">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 id="currentUser" class="text-center"></h2>
+                <button id="refreshButton" class="btn btn-info refresh-btn">Refresh</button>
+            </div>
+            <div class="chat-container mt-3">
+                <div class="user-list p-3">
+                    <h4>Users</h4>
+                    <ul id="userList" class="list-group"></ul>
+                </div>
+                <div class="message-list p-3">
+                    <h4 id="chatUser">Select a user to chat</h4>
+                    <ul id="messageList"></ul>
+                    <form id="messageForm" class="message-form">
+                        <input type="text" id="messageInput" placeholder="Type a message..." class="form-control" required>
+                        <button type="submit" class="btn btn-success">Send</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let token = '';
+        let currentChatUser = '';
+
+        document.getElementById('loginButton').addEventListener('click', login);
+        document.getElementById('registerButton').addEventListener('click', register);
+        document.getElementById('refreshButton').addEventListener('click', refreshAll);
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            if (response.ok) {
+                const data = await response.json();
+                token = data.token;
+                document.getElementById('login').classList.add('hidden');
+                document.getElementById('chat').classList.remove('hidden');
+                document.getElementById('currentUser').innerText = "Welcome, " + username;
+                socket.emit('join', username);
+                refreshAll();
+                setInterval(refreshAll, 5000); // Auto-refresh every 5 seconds
+            } else {
+                alert('Login failed');
+            }
+        }
+
+        async function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const response = await fetch('/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            if (response.ok) {
+                alert('User registered');
+            } else {
+                alert('Registration failed');
+            }
+        }
+
+        async function refreshAll() {
+            await loadUsers();
+            if (currentChatUser) {
+                await loadMessages(currentChatUser);
+            }
+        }
+
+        async function loadUsers() {
+            const response = await fetch('/users', {
+                headers: { 'Authorization': token }
+            });
+            const users = await response.json();
+            const userList = document.getElementById('userList');
+            userList.innerHTML = '';
+            users.forEach(user => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item list-group-item-action';
+                li.innerText = user.username;
+                li.addEventListener('click', () => loadMessages(user.username));
+                userList.appendChild(li);
+            });
+        }
+
+        async function loadMessages(withUser) {
+            currentChatUser = withUser;
+            document.getElementById('chatUser').innerText = withUser;
+            const response = await fetch(`/messages/${withUser}`, {
+                headers: { 'Authorization': token }
+            });
+            const messages = await response.json();
+            const messageList = document.getElementById('messageList');
+            messageList.innerHTML = '';
+            messages.forEach(message => {
+                const li = document.createElement('li');
+                li.innerText = `${message.from}: ${message.text}`;
+                messageList.appendChild(li);
+            });
+        }
+
+        document.getElementById('messageForm').addEventListener('submit', sendMessage);
+
+        function sendMessage(event) {
+            event.preventDefault();
+            const text = document.getElementById('messageInput').value;
+            if (currentChatUser && text.trim() !== '') {
+                socket.emit('private message', { to: currentChatUser, text });
+                document.getElementById('messageInput').value = '';
+            }
+        }
+
+        socket.on('private message', (message) => {
+            if (message.from === currentChatUser || message.to === currentChatUser) {
+                const li = document.createElement('li');
+                li.innerText = `${message.from}: ${message.text}`;
+                document.getElementById('messageList').appendChild(li);
+            }
+        });
+
+        socket.on('user connected', (username) => {
+            console.log(`${username} has joined the chat`);
+        });
+    </script>
+</body>
+</html>
+

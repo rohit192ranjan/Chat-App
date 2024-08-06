@@ -1,0 +1,51 @@
+body {
+    background-color: #f8f9fa;
+}
+.chat-container {
+    height: 80vh;
+    display: flex;
+    flex-direction: row;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+}
+.user-list {
+    width: 30%;
+    border-right: 1px solid #dee2e6;
+    background-color: #ffffff;
+    overflow-y: auto;
+}
+.message-list {
+    width: 70%;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+.message-list ul {
+    list-style-type: none;
+    padding: 0;
+}
+.message-list li {
+    padding: 10px;
+    border-bottom: 1px solid #dee2e6;
+}
+.message-list li:nth-child(odd) {
+    background-color: #f1f1f1;
+}
+.message-form {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-top: 1px solid #dee2e6;
+}
+.message-form input {
+    flex: 1;
+    margin-right: 10px;
+}
+.hidden {
+    display: none;
+}
+.refresh-btn {
+    margin-left: auto;
+    margin-right: 10px;
+}
