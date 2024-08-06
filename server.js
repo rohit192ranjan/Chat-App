@@ -10,6 +10,9 @@ const multer = require('multer');
 const path = require('path');
 require('dotenv').config();
 
+const process= require('process');
+process.removeAllListeners('warning');
+
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
