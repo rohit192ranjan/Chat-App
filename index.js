@@ -33,7 +33,8 @@ const messageSchema = new mongoose.Schema({
     from: String,
     to: String,
     text: String,
-    timestamp: { type: Date, default: Date.now }
+    timestamp: { type: Date, default: Date.now },
+    read: { type: Boolean, default: false }
 });
 
 const User = mongoose.model('User', userSchema);
@@ -83,6 +84,25 @@ const authenticate = (req, res, next) => {
         res.status(401).send('Invalid token');
     }
 };
+
+// Get unread messages count for each user
+app.get('/unread-messages', authenticate, async (req, res) => {
+    const unreadMessages = await Message.aggregate([
+        { $match: { to: req.user.username, read: false } },
+        { $group: { _id: '$from', count: { $sum: 1 } } }
+    ]);
+    res.json(unreadMessages);
+});
+
+// Mark messages as read
+app.post('/messages/mark-read/:withUser', authenticate, async (req, res) => {
+    const { withUser } = req.params;
+    await Message.updateMany(
+        { from: withUser, to: req.user.username, read: false },
+        { $set: { read: true } }
+    );
+    res.status(200).send('Messages marked as read');
+});
 
 // Get user list (except the current user)
 app.get('/users', authenticate, async (req, res) => {

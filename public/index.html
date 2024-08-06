@@ -66,7 +66,7 @@
                 document.getElementById('currentUser').innerText = "Welcome, " + username;
                 socket.emit('join', username);
                 refreshAll();
-                setInterval(refreshAll, 5000); // Auto-refresh every 5 seconds
+                setInterval(refreshAll, 500); // Auto-refresh every 5 seconds
             } else {
                 alert('Login failed');
             }
@@ -99,13 +99,33 @@
                 headers: { 'Authorization': token }
             });
             const users = await response.json();
+            
+            const unreadResponse = await fetch('/unread-messages', {
+                headers: { 'Authorization': token }
+            });
+            const unreadMessages = await unreadResponse.json();
+            const unreadCounts = unreadMessages.reduce((acc, { _id, count }) => {
+                acc[_id] = count;
+                return acc;
+            }, {});
+
             const userList = document.getElementById('userList');
             userList.innerHTML = '';
             users.forEach(user => {
                 const li = document.createElement('li');
-                li.className = 'list-group-item list-group-item-action';
+                li.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
                 li.innerText = user.username;
                 li.addEventListener('click', () => loadMessages(user.username));
+                
+                // Add unread message count
+                const unreadCount = unreadCounts[user.username] || 0;
+                if (unreadCount > 0) {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge badge-danger badge-pill';
+                    badge.innerText = unreadCount;
+                    li.appendChild(badge);
+                }
+
                 userList.appendChild(li);
             });
         }
@@ -124,6 +144,14 @@
                 li.innerText = `${message.from}: ${message.text}`;
                 messageList.appendChild(li);
             });
+            
+            // Mark messages as read
+            await fetch(`/messages/mark-read/${withUser}`, {
+                method: 'POST',
+                headers: { 'Authorization': token }
+            });
+            // Refresh user list to update unread counts
+            loadUsers();
         }
 
         document.getElementById('messageForm').addEventListener('submit', sendMessage);
